@@ -13,6 +13,7 @@
       background: #000;
     }
     #game-container {
+      position: relative;
       width: 100vw;
       height: 100vh;
       display: flex;
@@ -24,6 +25,33 @@
       width: 100% !important;
       height: 100% !important;
       image-rendering: pixelated;
+      position: relative;
+      z-index: 0;
+    }
+    .water-shimmer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 58%;
+      pointer-events: none;
+      z-index: 1;
+      background: linear-gradient(
+        180deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.03) 20%,
+        transparent 40%,
+        rgba(255, 255, 255, 0.04) 50%,
+        transparent 70%,
+        rgba(255, 255, 255, 0.02) 85%,
+        transparent 100%
+      );
+      background-size: 100% 200%;
+      animation: water-shine 4s ease-in-out infinite;
+    }
+    @keyframes water-shine {
+      0%, 100% { background-position: 0 0; opacity: 1; }
+      50% { background-position: 0 100%; opacity: 0.9; }
     }
   </style>
 </head>
@@ -63,6 +91,11 @@
     }
 
     k.onLoad(() => {
+      const container = document.querySelector("#game-container");
+      const shimmer = document.createElement("div");
+      shimmer.className = "water-shimmer";
+      shimmer.setAttribute("aria-hidden", "true");
+      container.appendChild(shimmer);
       k.go("title");
     });
 
@@ -114,6 +147,7 @@
 
     k.scene("game", () => {
       let score = 0;
+      let fishCount = 0;
       let gameTimer = 90;
       let hookActive = false;
 
@@ -201,6 +235,7 @@
         hook.onCollide("fish", (fish) => {
           k.play("fishon");
           fish.destroy();
+          fishCount += 1;
           score += 20;
           hook.destroy();
         });
@@ -231,7 +266,7 @@
       k.onUpdate(() => {
         gameTimer -= k.dt();
         timerText.text = "time: " + String(Math.max(0, Math.ceil(gameTimer)));
-        scoreText.text = score + " SEK";
+        scoreText.text = fishCount + " fisk";
         if (gameTimer <= 0) {
           k.go("win", { score });
         }
