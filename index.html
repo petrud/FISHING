@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bror's Fishing Adventure</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    #game-container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #game-container canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+      image-rendering: pixelated;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+  <script type="module">
+    import kaplay from "https://cdn.jsdelivr.net/npm/kaplay@3001.0.19/dist/kaplay.mjs";
+
+    const k = kaplay({
+      width: 1280,
+      height: 720,
+      stretch: true,
+      background: [30, 60, 100],
+      root: document.querySelector("#game-container"),
+    });
+
+    k.loadRoot("./");
+    k.loadSound("bgm", "Pixel_Tide_Lullaby.mp3");
+    k.loadSound("fishon", "fishon.wav");
+    k.loadSound("lootsfx", "lootsfx.wav");
+    k.loadSprite("titlescreen", "sprites/titlescreen.png");
+    k.loadSprite("logo", "sprites/logo.png");
+    k.loadSprite("lake", "sprites/lake.png");
+    k.loadSprite("boat", "sprites/boat.png");
+    k.loadSprite("fish_abborre", "sprites/fish_abborre.png");
+    k.loadSprite("fish_gadda", "sprites/fish_gadda.png");
+    k.loadSprite("fish_gos", "sprites/fish_gos.png");
+    k.loadSprite("hook", "sprites/hook.png");
+    k.loadSprite("chest", "sprites/chest.png");
+
+    let bgmStarted = false;
+    function startBgm() {
+      if (!bgmStarted) {
+        bgmStarted = true;
+        k.play("bgm", { loop: true, volume: 1 });
+      }
+    }
+
+    k.onLoad(() => {
+      k.go("title");
+    });
+
+    k.scene("title", () => {
+      k.onClick(() => startBgm());
+      k.add([
+        k.sprite("titlescreen", { width: k.width(), height: k.height() }),
+        k.pos(0, 0),
+        k.anchor("topleft"),
+        k.scale(k.vec2(1, 1)),
+      ]);
+
+      const centerX = k.width() / 2;
+      const logoY = k.height() * 0.38;
+      const logo = k.add([
+        k.sprite("logo", { width: 720, height: 300 }),
+        k.pos(centerX, logoY),
+        k.anchor("center"),
+        k.scale(k.vec2(1, 1)),
+      ]);
+      logo.onUpdate(() => {
+        logo.pos.x = centerX + k.wave(-12, 12, k.time() * 1.2);
+      });
+
+      k.add([
+        k.text("Use spacebar to fish", { size: 32 }),
+        k.pos(k.width() / 2, k.height() * 0.72),
+        k.anchor("center"),
+      ]);
+      const btn = k.add([
+        k.rect(200, 40),
+        k.pos(k.width() / 2 - 100, k.height() * 0.78),
+        k.scale(k.vec2(1, 1)),
+        k.outline(2, k.rgb(255, 255, 255)),
+        k.area(),
+        k.color(34, 85, 51),
+        "startBtn",
+      ]);
+      k.add([
+        k.text("Börja fiska!", { size: 18 }),
+        k.pos(k.width() / 2, k.height() * 0.78 + 20),
+        k.anchor("center"),
+      ]);
+      btn.onClick(() => {
+        startBgm();
+        k.go("game");
+      });
+    });
+
+    k.scene("game", () => {
+      let score = 0;
+      let gameTimer = 90;
+      let hookActive = false;
+
+      k.add([
+        k.pos(k.width() / 2, 280),
+        k.area({ shape: new k.Rect(k.vec2(-100, -90), 200, 90) }),
+        k.z(0),
+        "boat",
+      ]);
+
+      k.onDraw(() => {
+        k.drawSprite({
+          sprite: "lake",
+          width: k.width(),
+          height: k.height(),
+          pos: k.vec2(0, 0),
+          anchor: "topleft",
+        });
+        const boat = k.get("boat")[0];
+        if (boat) {
+          k.drawSprite({
+            sprite: "boat",
+            width: 200,
+            height: 90,
+            pos: boat.pos.add(k.vec2(-100, -90)),
+            anchor: "topleft",
+          });
+        }
+        k.get("fish").forEach((f) => {
+          const name = f.spriteName || "fish_abborre";
+          k.drawSprite({
+            sprite: name,
+            width: 72,
+            height: 36,
+            pos: f.pos.add(k.vec2(-36, -18)),
+            anchor: "topleft",
+          });
+        });
+        k.get("hook").forEach((h) => {
+          k.drawSprite({
+            sprite: "hook",
+            width: 24,
+            height: 24,
+            pos: h.pos.add(k.vec2(-12, -12)),
+            anchor: "topleft",
+          });
+        });
+        const hook = k.get("hook")[0];
+        if (hook && boat) {
+          k.drawLine({
+            p1: k.vec2(k.width() / 2, 280),
+            p2: hook.pos,
+            width: 2,
+            color: k.rgb(255, 255, 255),
+          });
+        }
+      });
+
+      const fishSprites = ["fish_abborre", "fish_gadda", "fish_gos"];
+      k.loop(2, () => {
+        const fish = k.add([
+          k.pos(k.width(), k.rand(400, 650)),
+          k.area({ shape: new k.Rect(k.vec2(-36, -18), 72, 36) }),
+          k.move(k.LEFT, k.rand(100, 200)),
+          k.offscreen({ destroy: true }),
+          k.z(10),
+          "fish",
+        ]);
+        fish.spriteName = k.choose(fishSprites);
+      });
+
+      function castHook() {
+        if (hookActive) return;
+        hookActive = true;
+        const boat = k.get("boat")[0];
+        const startPos = boat ? boat.pos : k.vec2(k.width() / 2, 280);
+        const hook = k.add([
+          k.pos(startPos.x, startPos.y),
+          k.area({ shape: new k.Rect(k.vec2(-12, -12), 24, 24) }),
+          k.z(15),
+          "hook",
+        ]);
+        hook.use(k.move(k.DOWN, 350));
+        hook.use(k.offscreen({ destroy: true }));
+        hook.onCollide("fish", (fish) => {
+          k.play("fishon");
+          fish.destroy();
+          score += 20;
+          hook.destroy();
+        });
+        hook.onDestroy(() => {
+          hookActive = false;
+        });
+      }
+      k.onKeyPress("space", castHook);
+      k.onClick(castHook);
+
+      const scoreText = k.add([
+        k.text("0 SEK", { size: 32 }),
+        k.pos(20, 20),
+        k.color(0, 0, 0),
+        k.fixed(),
+        k.z(100),
+      ]);
+
+      const timerText = k.add([
+        k.text("time: 90", { size: 32 }),
+        k.pos(k.width() - 20, 20),
+        k.anchor("topright"),
+        k.color(0, 0, 0),
+        k.fixed(),
+        k.z(100),
+      ]);
+
+      k.onUpdate(() => {
+        gameTimer -= k.dt();
+        timerText.text = "time: " + String(Math.max(0, Math.ceil(gameTimer)));
+        scoreText.text = score + " SEK";
+        if (gameTimer <= 0) {
+          k.go("win", { score });
+        }
+      });
+    });
+
+    k.scene("win", ({ score = 0 }) => {
+      k.add([
+        k.sprite("titlescreen", { width: k.width(), height: k.height() }),
+        k.pos(0, 0),
+        k.anchor("topleft"),
+        k.scale(k.vec2(1, 1)),
+        k.z(0),
+      ]);
+
+      let chestScale = 0.6;
+      const chest = k.add([
+        k.pos(k.width() / 2, k.height() / 2),
+        k.area({ shape: new k.Rect(k.vec2(-100, -100), 200, 200), cursor: "pointer" }),
+        k.z(10),
+        "chest",
+      ]);
+
+      k.onDraw(() => {
+        k.drawSprite({
+          sprite: "chest",
+          width: Math.round(200 * chestScale),
+          height: Math.round(200 * chestScale),
+          pos: chest.pos.add(k.vec2(-100 * chestScale, -100 * chestScale)),
+          anchor: "topleft",
+        });
+      });
+
+      let revealed = false;
+      chest.onClick(() => {
+        if (revealed) return;
+        revealed = true;
+        k.play("lootsfx");
+        k.shake(8);
+        k.tween(chestScale, 0.7, 0.4, (v) => chestScale = v, k.easings.easeOutQuad);
+        k.add([
+          k.text("Grattis Johan! Du vann " + score + " kr. Kommer på swish!", { size: 28 }),
+          k.pos(k.width() / 2, k.height() / 2 - 120),
+          k.anchor("center"),
+          k.color(0, 0, 0),
+          k.z(100),
+          k.fixed(),
+        ]);
+        const againBtn = k.add([
+          k.rect(200, 40),
+          k.pos(k.width() / 2 - 100, k.height() / 2 + 80),
+          k.scale(k.vec2(1, 1)),
+          k.area(),
+          k.color(34, 85, 51),
+          k.z(100),
+          k.fixed(),
+        ]);
+        k.add([
+          k.text("Spela igen", { size: 18 }),
+          k.pos(k.width() / 2, k.height() / 2 + 100),
+          k.anchor("center"),
+          k.z(100),
+          k.fixed(),
+        ]);
+        againBtn.onClick(() => k.go("title"));
+      });
+    });
+  </script>
+</body>
+</html>
